@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<!-- 
+  Simple Notepad
+  
+  A lightweight, browser-based plain text editor with support for the modern
+  File System Access API (where available), keyboard shortcuts, find/replace,
+  and a classic menu-driven interface.
+  
+  SPDX-License-Identifier: GPL-3.0-only
+  
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, version 3 of the License.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Notepad</title>
+    <style>
+        /* Layout & Typography */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: calc(var(--vh, 1vh) * 100);
+            min-height: 100vh; /* keep desktop fallback */
+            overflow: hidden;
+        }
+        header {
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ccc;
+            padding: 1px 0;
+        }
+        #notepad {
+            flex: 1;
+            padding: 10px 10px env(safe-area-inset-bottom, 10px);
+            box-sizing: border-box;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+        }
+        #statusBar {
+            background-color: #f0f0f0;
+            border-top: 1px solid #ccc;
+            padding: 5px 10px env(safe-area-inset-bottom, 5px);
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            position: sticky; /* keep at bottom of flex container */
+            bottom: 0;
+            z-index: 5000; /* above textarea but below modals */
+        }
+        /* Menu System */
+        #menu {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            font-size: 14px;
+        }
+        #menu > li {
+            position: relative;
+            padding: 6px 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #menu > li:hover {
+            background-color: #e0e0e0;
+        }
+        #menu > li:active {
+            background-color: #cfcfcf;
+        }
+        #menu ul {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #fff;
+            padding: 0;
+            margin: 0;
+            list-style: none;
+            border: 1px solid #ccc;
+            min-width: 180px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 9999;
+        }
+        #menu ul li {
+            padding: 6px 14px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        #menu ul li:hover {
+            background-color: #f0f0f0;
+        }
+        /* Find/Replace Box */
+        #findReplaceBox {
+            display: none;
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #fff;
+            padding: 14px;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            z-index: 10000; /* Higher than menus */
+            width: 340px;
+            max-width: 90%;
+            border-radius: 6px;
+        }
+        #findReplaceBox input[type="text"] {
+            width: 220px;
+            padding: 6px;
+            margin-right: 6px;
+            box-sizing: border-box;
+        }
+        #findReplaceBox button {
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+        #findReplaceBox .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: #f0f0f0;
+            border: none;
+            font-size: 18px;
+            width: 26px;
+            height: 26px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        #findReplaceBox div {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        /* Modal Dialogs */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.3);
+            justify-content: center;
+            align-items: center;
+            z-index: 11000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            width: 320px;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .modal-content input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 12px 0 8px;
+            box-sizing: border-box;
+        }
+        .modal-content button {
+            padding: 6px 12px;
+            margin: 4px;
+            cursor: pointer;
+            min-width: 70px;
+        }
+        .modal-close {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: #eee;
+            border: none;
+            width: 24px;
+            height: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        /* Hidden file input */
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <ul id="menu">
+            <li>File
+                <ul>
+                    <li onclick="newText()">New<span class="shortcut"> (Ctrl+Shift+N)</span></li>
+                    <li onclick="saveText()">Save<span class="shortcut"> (Ctrl+S)</span></li>
+                    <li onclick="openText()">Open</li>
+                    <li onclick="closeText()">Close<span class="shortcut"> (Ctrl+W)</span></li>
+                    <li onclick="exitApp()">Exit</li>
+                </ul>
+            </li>
+            <li>Edit
+                <ul>
+                    <li onclick="cutText()">Cut<span class="shortcut"> (Ctrl+X)</span></li>
+                    <li onclick="copyText()">Copy<span class="shortcut"> (Ctrl+C)</span></li>
+                    <li onclick="pasteText()">Paste<span class="shortcut"> (Ctrl+V)</span></li>
+                    <li onclick="selectAllText()">Select All<span class="shortcut"> (Ctrl+A)</span></li>
+                    <li onclick="showFindReplaceBox()">Find/Replace<span class="shortcut"> (Ctrl+F)</span></li>
+                </ul>
+            </li>
+            <li>Help
+                <ul>
+                    <li onclick="showAbout()">About</li>
+                </ul>
+            </li>
+        </ul>
+    </header>
+    <textarea id="notepad" spellcheck="false"></textarea>
+    <div id="statusBar">
+        <span id="lineCol">Ln 1, Col 1</span>
+        <span id="charCount">Chars: 0</span>
+        <span id="zoomLevel">Zoom: 100%</span>
+        <span id="resolution"></span>
+        <span id="osBrowser"></span>
+        <span id="encoding">UTF-8</span>
+    </div>
+    <input type="file" id="fileInput" accept=".txt">
+    <!-- Find/Replace Panel -->
+    <div id="findReplaceBox">
+        <div style="margin-bottom: 10px;">
+            <input type="text" id="findText" placeholder="Find text">
+            <button onclick="findNext()">Find Next</button>
+        </div>
+        <div>
+            <input type="text" id="replaceText" placeholder="Replace with">
+            <button onclick="replaceCurrent()">Replace</button>
+            <button onclick="replaceAll()">Replace All</button>
+        </div>
+    </div>
+    <!-- Modal Dialogs -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div id="confirmMessage"></div>
+            <div style="text-align: right; margin-top: 16px;">
+                <button onclick="confirmYes()">Yes</button>
+                <button onclick="confirmNo()">No</button>
+            </div>
+        </div>
+    </div>
+    <div id="alertModal" class="modal">
+        <div class="modal-content">
+            <div id="alertMessage"></div>
+            <div style="text-align: right; margin-top: 16px;">
+                <button onclick="closeModal('alertModal')">OK</button>
+            </div>
+        </div>
+    </div>
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <div id="promptMessage"></div>
+            <input type="text" id="promptInput">
+            <div style="text-align: right; margin-top: 16px;">
+                <button onclick="promptOk()">OK</button>
+                <button onclick="promptCancel()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // ========================================
+        // Global References & State
+        // ========================================
+        const notepad = document.getElementById('notepad');
+        const lineCol = document.getElementById('lineCol');
+        const charCount = document.getElementById('charCount');
+        const zoomLevel = document.getElementById('zoomLevel');
+        const osBrowser = document.getElementById('osBrowser');
+        const findReplaceBox = document.getElementById('findReplaceBox');
+        const fileInput = document.getElementById('fileInput');
+        let currentFileHandle = null;
+        let lastFindIndex = 0;
+        let basePixelRatio = null;
+        const supportsFileSystemAccess = 'showSaveFilePicker' in window;
+        let confirmCallback = null;
+        let promptCallback = null;
+        // ========================================
+        // Utility: Modal Dialogs
+        // ========================================
+        function showConfirm(message, onYes, onNo = null) {
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmModal').style.display = 'flex';
+            confirmCallback = { yes: onYes, no: onNo };
+        }
+        function confirmYes() {
+            closeModal('confirmModal');
+            if (confirmCallback?.yes) confirmCallback.yes();
+        }
+        function confirmNo() {
+            closeModal('confirmModal');
+            if (confirmCallback?.no) confirmCallback.no();
+        }
+        function showAlert(message) {
+            document.getElementById('alertMessage').innerHTML = message;
+            document.getElementById('alertModal').style.display = 'flex';
+        }
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+        function showPrompt(message, defaultValue = '', callback) {
+            document.getElementById('promptMessage').textContent = message;
+            document.getElementById('promptInput').value = defaultValue;
+            document.getElementById('promptModal').style.display = 'flex';
+            promptCallback = callback;
+        }
+        function promptOk() {
+            closeModal('promptModal');
+            if (promptCallback) promptCallback(document.getElementById('promptInput').value);
+        }
+        function promptCancel() {
+            closeModal('promptModal');
+            if (promptCallback) promptCallback(null);
+        }
+        // ========================================
+        // Status Bar Updates
+        // ========================================
+        function updateLineColumn() {
+            const pos = notepad.selectionStart;
+            const textBefore = notepad.value.slice(0, pos);
+            const lines = textBefore.split('\n');
+            const line = lines.length;
+            const col = lines[lines.length - 1].length + 1;
+            lineCol.textContent = `Ln ${line}, Col ${col}`;
+        }
+        function updateCharCount() {
+            charCount.textContent = `Chars: ${notepad.value.length}`;
+        }
+        function updateZoomStatus() {
+            let zoom = 100;
+            if (window.visualViewport && window.visualViewport.scale !== 1) {
+                zoom = Math.round(window.visualViewport.scale * 100);
+            } else {
+                if (basePixelRatio === null) {
+                    basePixelRatio = window.devicePixelRatio;
+                }
+                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                if (isSafari) {
+                    const ratio = document.documentElement.clientWidth / document.documentElement.offsetWidth;
+                    zoom = Math.round(ratio * 100);
+                } else if (basePixelRatio) {
+                    zoom = Math.round((window.devicePixelRatio / basePixelRatio) * 100);
+                }
+            }
+            zoomLevel.textContent = `Zoom: ${zoom}%`;
+        }
+        function updateStatusBar() {
+            updateLineColumn();
+            updateCharCount();
+        }
+        function detectOSBrowser() {
+            const ua = navigator.userAgent;
+            let os = 'Unknown OS';
+            let browser = 'Unknown Browser';
+            if (ua.includes('Win')) os = 'Windows';
+            else if (ua.includes('Mac')) os = 'MacOS';
+            else if (ua.includes('Linux')) os = 'Linux';
+            if (ua.includes('Firefox')) browser = 'Firefox';
+            else if (ua.includes('Chrome')) browser = 'Chrome';
+            else if (ua.includes('Safari')) browser = 'Safari';
+            osBrowser.textContent = `${os} – ${browser}`;
+        }
+        // ========================================
+        // File Operations
+        // ========================================
+        async function saveText() {
+            const content = notepad.value;
+            if (supportsFileSystemAccess) {
+                try {
+                    let handle = currentFileHandle;
+                    if (!handle) {
+                        handle = await window.showSaveFilePicker({
+                            suggestedName: 'note.txt',
+                            types: [{
+                                description: 'Text Files',
+                                accept: { 'text/plain': ['.txt'] }
+                            }]
+                        });
+                        currentFileHandle = handle;
+                    }
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    showAlert('File saved successfully ✔');
+                } catch (err) {
+                    // User cancelled
+                }
+                return;
+            }
+            showPrompt('Enter filename', 'note.txt', (filename) => {
+                if (!filename) return;
+                if (!filename.toLowerCase().endsWith('.txt')) filename += '.txt';
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                showAlert(`Saved as "${filename}" ✔`);
+            });
+        }
+        async function openText() {
+            if (supportsFileSystemAccess) {
+                try {
+                    const [handle] = await window.showOpenFilePicker({
+                        types: [{
+                            description: 'Text Files',
+                            accept: { 'text/plain': ['.txt'] }
+                        }],
+                        multiple: false
+                    });
+                    currentFileHandle = handle;
+                    const file = await handle.getFile();
+                    notepad.value = await file.text();
+                    updateStatusBar();
+                } catch (err) {
+                    // User cancelled
+                }
+                return;
+            }
+            fileInput.click();
+        }
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                notepad.value = reader.result;
+                updateStatusBar();
+            };
+            reader.readAsText(file);
+            fileInput.value = '';
+        });
+        // ========================================
+        // Editing Operations
+        // ========================================
+        function newText() {
+            if (notepad.value.trim() === '' && currentFileHandle === null) {
+                notepad.value = '';
+                currentFileHandle = null;
+                updateStatusBar();
+                return;
+            }
+            showConfirm('Create new document? Unsaved changes will be lost.', () => {
+                notepad.value = '';
+                currentFileHandle = null;
+                updateStatusBar();
+            });
+        }
+        function closeText() {
+            showConfirm('Close current document? Unsaved changes will be lost.', () => {
+                notepad.value = '';
+                currentFileHandle = null;
+                updateStatusBar();
+            });
+        }
+        function exitApp() {
+            showConfirm('Exit application? Unsaved changes will be lost.', () => {
+                showAlert('Document closed. You may now close this tab.');
+            });
+        }
+        function cutText() {
+            const selected = notepad.value.substring(notepad.selectionStart, notepad.selectionEnd);
+            navigator.clipboard.writeText(selected);
+            notepad.setRangeText('', notepad.selectionStart, notepad.selectionEnd, 'end');
+        }
+        function copyText() {
+            const selected = notepad.value.substring(notepad.selectionStart, notepad.selectionEnd);
+            navigator.clipboard.writeText(selected);
+        }
+        async function pasteText() {
+            try {
+                const text = await navigator.clipboard.readText();
+                notepad.setRangeText(text, notepad.selectionStart, notepad.selectionEnd, 'end');
+            } catch (err) {
+                showAlert('Failed to paste from clipboard.');
+            }
+        }
+        function selectAllText() {
+            notepad.select();
+        }
+        // ========================================
+        // Find & Replace
+        // ========================================
+        function showFindReplaceBox() {
+            findReplaceBox.style.display = 'block';
+            document.getElementById('findText').focus();
+            document.getElementById('findText').select();
+        }
+        function hideFindReplaceBox() {
+            findReplaceBox.style.display = 'none';
+        }
+        function findNext() {
+            const query = document.getElementById('findText').value.trim();
+            if (!query) {
+                showAlert('Enter text to find.');
+                return;
+            }
+            const text = notepad.value;
+            let start = notepad.selectionEnd;
+            if (lastFindIndex > start) start = lastFindIndex;
+            const index = text.indexOf(query, start);
+            if (index === -1) {
+                showAlert('No more occurrences found.');
+                lastFindIndex = 0;
+                return;
+            }
+            notepad.focus();
+            notepad.setSelectionRange(index, index + query.length);
+            lastFindIndex = index + query.length;
+        }
+        function replaceCurrent() {
+            const findVal = document.getElementById('findText').value.trim();
+            const replaceVal = document.getElementById('replaceText').value;
+            if (!findVal) {
+                showAlert('Enter text to find.');
+                return;
+            }
+            const selected = notepad.value.substring(notepad.selectionStart, notepad.selectionEnd);
+            if (selected === findVal) {
+                notepad.setRangeText(replaceVal, notepad.selectionStart, notepad.selectionEnd, 'end');
+                lastFindIndex = notepad.selectionStart;
+            }
+            findNext();
+        }
+        function replaceAll() {
+            const findVal = document.getElementById('findText').value.trim();
+            const replaceVal = document.getElementById('replaceText').value;
+            if (!findVal) {
+                showAlert('Enter text to find.');
+                return;
+            }
+            const escaped = findVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escaped, 'g');
+            const newText = notepad.value.replace(regex, replaceVal);
+            if (newText === notepad.value) {
+                showAlert('No occurrences found to replace.');
+                return;
+            }
+            notepad.value = newText;
+            updateStatusBar();
+            lastFindIndex = 0;
+            showAlert('All occurrences replaced.');
+        }
+        // ========================================
+        // About
+        // ========================================
+        function showAbout() {
+            showAlert(`
+                <strong>Simple Notepad</strong><br><br>
+                A lightweight, browser-based plain text editor.<br><br>
+                Supports modern File System Access API where available.<br><br>
+                Keyboard shortcuts: Ctrl+Shift+N, Ctrl+S, Ctrl+F, etc.
+            `);
+        }
+        // ========================================
+        // Menu Behavior
+        // ========================================
+        document.querySelectorAll('#menu > li').forEach(topItem => {
+            topItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('#menu > li > ul').forEach(sub => {
+                    if (sub.parentElement !== topItem) sub.style.display = 'none';
+                });
+                const submenu = topItem.querySelector('ul');
+                if (submenu) {
+                    submenu.style.display = submenu.style.display === 'block' ? 'none' : 'block';
+                }
+            });
+            topItem.addEventListener('mouseleave', () => {
+                const submenu = topItem.querySelector('ul');
+                if (submenu) submenu.style.display = 'none';
+            });
+        });
+        // ========================================
+        // Global Click Handler
+        // ========================================
+        document.addEventListener('click', (e) => {
+            // Close all dropdown menus
+            document.querySelectorAll('#menu ul').forEach(menu => {
+                menu.style.display = 'none';
+            });
+            // Do NOT close the Find/Replace box if clicking inside it or on its children
+            if (findReplaceBox.style.display === 'block') {
+                if (findReplaceBox.contains(e.target)) {
+                    return; // Click was inside the box → do nothing
+                }
+            }
+            // Only close Find/Replace if click is outside
+            hideFindReplaceBox();
+        });
+        // Close menus on submenu item click
+        document.querySelectorAll('#menu ul li').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('#menu ul').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            });
+        });
+        // ========================================
+        // Keyboard Shortcuts
+        // ========================================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('#menu ul').forEach(menu => menu.style.display = 'none');
+                hideFindReplaceBox();
+                return;
+            }
+            const isMac = navigator.platform.toUpperCase().includes('MAC');
+            const modifier = isMac ? e.metaKey : e.ctrlKey;
+            if (!modifier) return;
+            const key = e.key.toLowerCase();
+            switch (key) {
+                case 'n':
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    newText();
+                }
+                break;
+                case 's': e.preventDefault(); saveText(); break;
+                case 'o': e.preventDefault(); openText(); break;
+                case 'w': e.preventDefault(); closeText(); break;
+                case 'a': e.preventDefault(); selectAllText(); break;
+                case 'f': e.preventDefault(); showFindReplaceBox(); break;
+                case 'x': if (!e.shiftKey && !e.altKey) { e.preventDefault(); cutText(); } break;
+                case 'c': e.preventDefault(); copyText(); break;
+                case 'v': e.preventDefault(); pasteText(); break;
+            }
+        }, true);
+        const el = document.getElementById('resolution');
+        function updateResolution() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const orientation = w > h ? 'landscape' : 'portrait';
+            el.textContent = `${w} × ${h} (${orientation})`;
+        }
+        // ========================================
+        // Initialization
+        // ========================================
+        detectOSBrowser();
+        updateStatusBar();
+        updateResolution();
+        // Fix iOS 100vh bug
+        function setViewportHeight() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        // Combined resize handler
+        function handleResize() {
+            setViewportHeight();
+            updateResolution();
+            updateZoomStatus();
+        }
+        // Initial call
+        handleResize();
+        // Recalculate on resize/orientation change
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        // Zoom changes from pinch / browser UI
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+        }
+        // ========================================
+        // Notepad events
+        // ========================================
+        notepad.addEventListener('input', updateStatusBar);
+        notepad.addEventListener('click', updateStatusBar);
+        notepad.addEventListener('keyup', updateStatusBar);
+        notepad.addEventListener('scroll', updateLineColumn);
+    </script>
+</body>
+</html>
