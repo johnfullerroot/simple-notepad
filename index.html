@@ -39,6 +39,8 @@
                 </li>
                 <li>Edit
                     <ul>
+                        <li onclick="undoText()">Undo<span class="shortcut"> (Ctrl+Z)</span></li>
+                        <li onclick="redoText()">Redo<span class="shortcut"> (Ctrl+Y)</span></li>
                         <li onclick="cutText()">Cut<span class="shortcut"> (Ctrl+X)</span></li>
                         <li onclick="copyText()">Copy<span class="shortcut"> (Ctrl+C)</span></li>
                         <li onclick="pasteText()">Paste<span class="shortcut"> (Ctrl+V)</span></li>
@@ -213,6 +215,7 @@
 // ========================================
 detectOSBrowser();
 updateStatusBar();           // This now also updates resolution
+initUndoRedo();
 // Fix iOS 100vh bug
 function setViewportHeight() {
     const vh = window.innerHeight * 0.01;
@@ -251,6 +254,7 @@ if (window.visualViewport) {
 <script src="shortcuts.js"></script>
 <script src="tools.js"></script>
 <script src="insert.js"></script>
+<script src="undoredo.js"></script>
 
 </body>
 </html>

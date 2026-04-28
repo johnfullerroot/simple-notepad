@@ -8,22 +8,32 @@ document.addEventListener('keydown', (e) => {
         hideFindReplaceBox();
         return;
     }
+
     const isMac = navigator.platform.toUpperCase().includes('MAC');
     const modifier = isMac ? e.metaKey : e.ctrlKey;
+
     if (!modifier) return;
+
     const key = e.key.toLowerCase();
+
     switch (key) {
         case 'n':
-            if (e.shiftKey) {
-                e.preventDefault();
-                newText();
-            }
+            if (e.shiftKey) { e.preventDefault(); newText(); }
             break;
         case 's': e.preventDefault(); saveText(); break;
         case 'o': e.preventDefault(); openText(); break;
         case 'w': e.preventDefault(); closeText(); break;
         case 'a': e.preventDefault(); selectAllText(); break;
         case 'f': e.preventDefault(); showFindReplaceBox(); break;
+        case 'z': 
+            e.preventDefault();
+            if (e.shiftKey) redoText();
+            else undoText();
+            break;
+        case 'y': 
+            e.preventDefault(); 
+            redoText(); 
+            break;
         case 'x': if (!e.shiftKey && !e.altKey) { e.preventDefault(); cutText(); } break;
         case 'c': e.preventDefault(); copyText(); break;
         case 'v': e.preventDefault(); pasteText(); break;
