@@ -3,11 +3,25 @@
 // ========================================
 
 function uppercaseText() {
-    notepad.value = notepad.value.toUpperCase();
+    const start = notepad.selectionStart;
+    const end = notepad.selectionEnd;
+    if (start === end) {
+        notepad.value = notepad.value.toUpperCase();
+    } else {
+        const selected = notepad.value.substring(start, end);
+        notepad.setRangeText(selected.toUpperCase(), start, end, 'end');
+    }
     updateStatusBar();
 }
 function lowercaseText() {
-    notepad.value = notepad.value.toLowerCase();
+    const start = notepad.selectionStart;
+    const end = notepad.selectionEnd;
+    if (start === end) {
+        notepad.value = notepad.value.toLowerCase();
+    } else {
+        const selected = notepad.value.substring(start, end);
+        notepad.setRangeText(selected.toLowerCase(), start, end, 'end');
+    }
     updateStatusBar();
 }
 function removeSymbols() {
@@ -55,4 +69,3 @@ function showStats() {
         </table>
     `;
 }
-
