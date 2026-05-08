@@ -37,6 +37,7 @@ function updateZoomStatus() {
 }
 
 function updateResolution() {
+    const resolutionEl = document.getElementById('resolution');
     const w = window.innerWidth;
     const h = window.innerHeight;
     const orientation = w > h ? 'landscape' : 'portrait';
@@ -47,6 +48,7 @@ function updateStatusBar() {
     updateLineColumn();
     updateCharCount();
     updateResolution();        // ← Now also updates resolution
+    updateZoomStatus();  
 }
 
 function detectOSBrowser() {
@@ -62,5 +64,9 @@ function detectOSBrowser() {
     osBrowser.textContent = `${os} – ${browser}`;
 }
 
-// Make updateResolution available globally (for shortcuts.js and inline script)
+// Expose everything needed globally
+window.updateStatusBar = updateStatusBar;
+window.updateLineColumn = updateLineColumn;
+window.updateCharCount = updateCharCount;
+window.updateZoomStatus = updateZoomStatus;
 window.updateResolution = updateResolution;

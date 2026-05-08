@@ -143,7 +143,18 @@
             </div>
         </div>
     </div>
-    <script src="statusbar.js"></script>
+
+<script src="statusbar.js"></script>
+<script src="modals.js"></script>
+<script src="savetext.js"></script>
+<script src="opentext.js"></script>
+<script src="replace.js"></script>
+<script src="editing.js"></script>
+<script src="shortcuts.js"></script>
+<script src="tools.js"></script>
+<script src="insert.js"></script>
+<script src="undoredo.js"></script>
+
     <script>
 
         // ========================================
@@ -224,8 +235,7 @@ function setViewportHeight() {
 // Combined resize handler
 function handleResize() {
     setViewportHeight();
-    updateResolution();      // Now safe to call
-    updateZoomStatus();
+    updateStatusBar();        // ← This now updates everything at once
 }
 // Initial call
 handleResize();
@@ -243,18 +253,9 @@ if (window.visualViewport) {
         notepad.addEventListener('input', updateStatusBar);
         notepad.addEventListener('click', updateStatusBar);
         notepad.addEventListener('keyup', updateStatusBar);
-        notepad.addEventListener('scroll', updateLineColumn);
+        notepad.addEventListener('select', updateStatusBar);     // selection changes
+        notepad.addEventListener('scroll', updateStatusBar);     // was only line/col
     </script>
-
-<script src="modals.js"></script>
-<script src="savetext.js"></script>
-<script src="opentext.js"></script>
-<script src="replace.js"></script>
-<script src="editing.js"></script>
-<script src="shortcuts.js"></script>
-<script src="tools.js"></script>
-<script src="insert.js"></script>
-<script src="undoredo.js"></script>
 
 </body>
 </html>
