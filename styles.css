@@ -13,12 +13,12 @@ body {
 }
 
 #app-container {
-    width: calc(100% - 100px);   /* 50px left + 50px right */
-    height: calc(100% - 100px);  /* 50px top + 50px bottom */
+    width: calc(100% - 40px);
+    height: calc(100% - 40px);
     background: white;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 0 0 50px #2f2f2f; /* thick dark grey border */
+    box-shadow: 0 0 0 20px #2f2f2f; /* dark grey border */
     border: 1px solid #1f1f1f;
     overflow: hidden;
     max-width: 100%;
