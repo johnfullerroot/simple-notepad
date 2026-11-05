@@ -40,6 +40,19 @@ function removeSpaces() {
     notepad.value = notepad.value.replace(/ /g, '');
     updateStatusBar();
 }
+function removeNewLines() {
+    // Joins lines into one continuous flow. Each run of line breaks becomes a single space.
+    const start = notepad.selectionStart;
+    const end = notepad.selectionEnd;
+    const flatten = (str) => str.replace(/[\r\n]+/g, ' ');
+    if (start === end) {
+        notepad.value = flatten(notepad.value);
+    } else {
+        notepad.setRangeText(flatten(notepad.value.substring(start, end)), start, end, 'end');
+    }
+    saveToHistory();
+    updateStatusBar();
+}
 function showStats() {
     const text = notepad.value;
     const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;

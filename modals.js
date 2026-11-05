@@ -44,3 +44,7 @@ function promptCancel() {
     closeModal('promptModal');
     if (promptCallback) promptCallback(null);
 }
+
+document.getElementById('promptInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); promptOk(); }
+});

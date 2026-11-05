@@ -4,7 +4,7 @@
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        document.querySelectorAll('#menu ul').forEach(menu => menu.style.display = 'none');
+        closeAllMenus();
         hideFindReplaceBox();
         return;
     }
@@ -25,6 +25,7 @@ document.addEventListener('keydown', (e) => {
         case 'w': e.preventDefault(); closeText(); break;
         case 'a': e.preventDefault(); selectAllText(); break;
         case 'f': e.preventDefault(); showFindReplaceBox(); break;
+        case 'g': e.preventDefault(); goToLine(); break;
         case 'z': 
             e.preventDefault();
             if (e.shiftKey) redoText();

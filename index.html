@@ -46,6 +46,7 @@
                         <li onclick="pasteText()">Paste<span class="shortcut"> (Ctrl+V)</span></li>
                         <li onclick="selectAllText()">Select All<span class="shortcut"> (Ctrl+A)</span></li>
                         <li onclick="showFindReplaceBox()">Find/Replace<span class="shortcut"> (Ctrl+F)</span></li>
+                        <li onclick="goToLine()">Go To...<span class="shortcut"> (Ctrl+G)</span></li>
                     </ul>
                 </li>
                 <li>Insert
@@ -62,6 +63,7 @@
                         <li onclick="removeTabulation()">Remove Tabulation</li>
                         <li onclick="removeNumbers()">Remove Numbers</li>
                         <li onclick="removeSpaces()">Remove Spaces</li>
+                        <li onclick="removeNewLines()">Remove New Lines</li>
                          <li onclick="showStats()">Statistics</li>
                     </ul>
                 </li>
@@ -177,21 +179,47 @@
         // ========================================
         // Menu Behavior
         // ========================================
-        document.querySelectorAll('#menu > li').forEach(topItem => {
+        let menuActive = false;   // true once a menu has been opened by click
+        const menuBar = document.getElementById('menu');
+        const menuTops = document.querySelectorAll('#menu > li');
+
+        function closeAllMenus() {
+            document.querySelectorAll('#menu ul').forEach(m => m.style.display = 'none');
+            menuActive = false;
+        }
+        function openMenu(topItem) {
+            menuTops.forEach(li => {
+                const sub = li.querySelector('ul');
+                if (sub) sub.style.display = (li === topItem) ? 'block' : 'none';
+            });
+            menuActive = true;
+        }
+
+        menuTops.forEach(topItem => {
             topItem.addEventListener('click', (e) => {
                 e.stopPropagation();
-                document.querySelectorAll('#menu > li > ul').forEach(sub => {
-                    if (sub.parentElement !== topItem) sub.style.display = 'none';
-                });
-                const submenu = topItem.querySelector('ul');
-                if (submenu) {
-                    submenu.style.display = submenu.style.display === 'block' ? 'none' : 'block';
+                // Click on a submenu item: close everything
+                if (e.target.closest('#menu ul')) {
+                    closeAllMenus();
+                    notepad.focus();
+                    return;
                 }
-                notepad.focus();   // ← THIS LINE ADDED (preserves textarea selection on menu navigation & item clicks)
-            });
-            topItem.addEventListener('mouseleave', () => {
                 const submenu = topItem.querySelector('ul');
-                if (submenu) submenu.style.display = 'none';
+                if (submenu && submenu.style.display === 'block') {
+                    closeAllMenus();
+                } else {
+                    openMenu(topItem);
+                }
+                notepad.focus();   // preserves textarea selection
+            });
+            // Once a menu is open, hovering another top-level item opens it
+            topItem.addEventListener('mouseenter', () => {
+                if (menuActive) openMenu(topItem);
+            });
+            topItem.addEventListener('mouseleave', (e) => {
+                // Moving to another menu item: let its mouseenter handle it
+                if (e.relatedTarget && menuBar.contains(e.relatedTarget)) return;
+                closeAllMenus();
             });
         });
 
@@ -200,9 +228,7 @@
         // ========================================
         document.addEventListener('click', (e) => {
             // Close all dropdown menus
-            document.querySelectorAll('#menu ul').forEach(menu => {
-                menu.style.display = 'none';
-            });
+            closeAllMenus();
             // Do NOT close the Find/Replace box if clicking inside it or on its children
             if (findReplaceBox.style.display === 'block') {
                 if (findReplaceBox.contains(e.target)) {
@@ -211,14 +237,6 @@
             }
             // Only close Find/Replace if click is outside
             hideFindReplaceBox();
-        });
-        // Close menus on submenu item click
-        document.querySelectorAll('#menu ul li').forEach(item => {
-            item.addEventListener('click', () => {
-                document.querySelectorAll('#menu ul').forEach(menu => {
-                    menu.style.display = 'none';
-                });
-            });
         });
 
 // ========================================
